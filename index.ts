@@ -18,7 +18,7 @@ const users = await pb.collection('users').getFullList({
 });
 const languages = new Set<string>();
 for (const user of users) {
-    if (user.languages && user.languages !== 'english') {
+    if (user.languages) {
         for (const language of user.languages) {
             languages.add(language);
         }
