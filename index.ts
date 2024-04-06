@@ -13,11 +13,23 @@ await pb.admins.authWithPassword(
     process.env.PB_TYPEGEN_EMAIL as string,
     process.env.PB_TYPEGEN_PASSWORD as string,
   );
+const users = await pb.collection('users').getFullList({
+    sort: '-created',
+});
+const languages = new Set<string>();
+for (const user of users) {
+    if (user.languages && user.languages !== 'english') {
+        for (const language of user.languages) {
+            languages.add(language);
+        }
+    }
+}
+
+
 
 pb.collection('tasks').subscribe('*', async (e:any) => {
     if(e.action === 'create') {
         console.log(e.action,e.record)
-        const languages = ['spanish', 'japanese', 'french']
         const translatedLanguages: {[key: string]: string} = {};
         for(const language of languages){
             const translation = await translate(e.record.title, language)
