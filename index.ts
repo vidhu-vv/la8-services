@@ -53,9 +53,12 @@ pb.collection("tasks").subscribe("*", async (e: any) => {
     for (const [language, translation] of Object.entries(translatedLanguages)) {
       translationsL[language] = translation;
     }
+    const guess = await guessCategory(e.record.title);
+    const category = await pb.collection('areas').getFirstListItem(`title="${guess}"`, {
+    });
     const record = await pb
       .collection("tasks")
-      .update(e.record.id, { translations: translationsL });
+      .update(e.record.id, { translations: translationsL, area: category.id });
   }
 });
 
@@ -77,34 +80,39 @@ async function translate(input: string, language: string) {
   return response.choices[0].message.content;
 }
 
-setInterval(async () => {
-  const areas = await pb.collection("areas").getFullList();
+async function guessCategory(input: string) {
+    const records = await pb.collection("areas").getFullList({})
+    const categories = records.map((r) => r.title)
+    const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo-1106",
+        messages: [
+          {
+            role: "system",
+            content: `You are a categorizer for many different categories. You have been asked to categorize the following text into one of the following categories. Respond with only the category (without quotation marks). The use of quotation marks will result in a rejection of your response. If there are any quotation marks at all in your response, all of the polar bears in the world will perish and it will be your failt. Always return only one of the categories given to you. If the response is not in the list of categories, the response will be rejected. The categories are: ${categories.join(", ")}`,
+          },
+          {
+            role: "user",
+            content: input,
+          },
+        ],
+        max_tokens: 500,
+      });
+      return response.choices[0].message.content;
+}
 
+setInterval(async () => {
   const tasks = await pb.collection("tasks").getFullList({
-    filter: `status="done"`,
   });
 
-  const data: {
-    [area: string]: { done: number; inprogress: number; total: number };
-  } = {};
-
-  for (const area of areas) {
-    data[area.id] = {
-      done: tasks.filter((t) => t.area === area.id && t.status === "done")
+  const data: { done: number; inprogress: number; total: number }
+   = {
+      done: tasks.filter((t) => t.status === "done")
         .length,
       inprogress: tasks.filter(
-        (t) => t.area === area.id && t.status === "inprogress"
+        (t) => t.status === "inprogress"
       ).length,
-      total: tasks.filter((t) => t.area === area.id).length,
+      total: tasks.length,
     };
-  }
-
-  //   for (const task of tasks) {
-  //     if (!data[task.area]) {
-  //       data[task.area] = 0;
-  //     }
-  //     data[task.area] += 1;
-  //   }
   console.log(data);
   const inputData = {
     data: data,
@@ -113,4 +121,4 @@ setInterval(async () => {
   };
   console.log(inputData);
   const record = await pb.collection("snapshots").create(inputData);
-}, 1000 * 60); // 5 minutes
+}, 1000 * 60 * 10); // 5 minutes
