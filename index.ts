@@ -36,23 +36,25 @@ pb.collection("users").subscribe("*", async (e) => {
     }
   }
   console.log(languages);
-  const translatedLanguages: { [key: string]: string } = {};
-  const records = await pb.collection("tasks").getFullList({});
+  const records = await pb.collection("tasks").getFullList();
+
   for (const record of records) {
+    const translatedLanguages: { [key: string]: string } = record.translations;
     for (const language of languages) {
+      if (translatedLanguages[language]) continue;
       console.log(`Translating to ${language}...`);
       const translation = await translate(record.title, language);
       if (translation !== null) {
         translatedLanguages[language] = translation;
       }
     }
-    const translationsL: { [key: string]: string } = {}; // Add index signature
-    for (const [language, translation] of Object.entries(translatedLanguages)) {
-      translationsL[language] = translation;
-    }
+    // const translationsL: { [key: string]: string } = {}; // Add index signature
+    // for (const [language, translation] of Object.entries(translatedLanguages)) {
+    //   translationsL[language] = translation;
+    // }
     const exput = await pb
     .collection("tasks")
-    .update(record.id, { translations: translationsL});
+    .update(record.id, { translations: translatedLanguages});
   }
 });
 
@@ -107,7 +109,7 @@ async function guessCategory(input: string) {
     messages: [
       {
         role: "system",
-        content: `You are a categorizer for many different categories. You have been asked to categorize the following text into one of the following categories. Respond with only the category (without quotation marks). The use of quotation marks will result in a rejection of your response. If there are any quotation marks at all in your response, all of the polar bears in the world will perish and it will be your failt. Always return only one of the categories given to you. If the response is not in the list of categories, the response will be rejected. The categories are: ${categories.join(
+        content: `You are a categorizer for many different categories. You have been asked to categorize the following text into one of the following categories. Respond with only the category (without quotation marks). The use of quotation marks will result in a rejection of your response. If there are any quotation marks at all in your response, all of the polar bears in the world will perish and it will be your failt. Always return only one of the categories given to you. If the response is not in the list of categories, the response will be rejected. Also, if the response is not exactly one of the categories given to you, then app will break and it will be your fault. The categories are: ${categories.join(
           ", "
         )}`,
       },
