@@ -26,7 +26,7 @@ for (const user of users) {
 }
 console.log(languages);
 
-pb.collection("users").subscribe("*", async () => {
+pb.collection("users").subscribe("*", async (e) => {
   const users = await pb.collection("users").getFullList({
     sort: "-created",
   });
@@ -36,6 +36,24 @@ pb.collection("users").subscribe("*", async () => {
     }
   }
   console.log(languages);
+  const translatedLanguages: { [key: string]: string } = {};
+  const records = await pb.collection("tasks").getFullList({});
+  for (const record of records) {
+    for (const language of languages) {
+      console.log(`Translating to ${language}...`);
+      const translation = await translate(record.title, language);
+      if (translation !== null) {
+        translatedLanguages[language] = translation;
+      }
+    }
+    const translationsL: { [key: string]: string } = {}; // Add index signature
+    for (const [language, translation] of Object.entries(translatedLanguages)) {
+      translationsL[language] = translation;
+    }
+    const exput = await pb
+    .collection("tasks")
+    .update(record.id, { translations: translationsL});
+  }
 });
 
 pb.collection("tasks").subscribe("*", async (e: any) => {
@@ -54,8 +72,9 @@ pb.collection("tasks").subscribe("*", async (e: any) => {
       translationsL[language] = translation;
     }
     const guess = await guessCategory(e.record.title);
-    const category = await pb.collection('areas').getFirstListItem(`title="${guess}"`, {
-    });
+    const category = await pb
+      .collection("areas")
+      .getFirstListItem(`title="${guess}"`, {});
     const record = await pb
       .collection("tasks")
       .update(e.record.id, { translations: translationsL, area: category.id });
@@ -81,38 +100,35 @@ async function translate(input: string, language: string) {
 }
 
 async function guessCategory(input: string) {
-    const records = await pb.collection("areas").getFullList({})
-    const categories = records.map((r) => r.title)
-    const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo-1106",
-        messages: [
-          {
-            role: "system",
-            content: `You are a categorizer for many different categories. You have been asked to categorize the following text into one of the following categories. Respond with only the category (without quotation marks). The use of quotation marks will result in a rejection of your response. If there are any quotation marks at all in your response, all of the polar bears in the world will perish and it will be your failt. Always return only one of the categories given to you. If the response is not in the list of categories, the response will be rejected. The categories are: ${categories.join(", ")}`,
-          },
-          {
-            role: "user",
-            content: input,
-          },
-        ],
-        max_tokens: 500,
-      });
-      return response.choices[0].message.content;
+  const records = await pb.collection("areas").getFullList({});
+  const categories = records.map((r) => r.title);
+  const response = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo-1106",
+    messages: [
+      {
+        role: "system",
+        content: `You are a categorizer for many different categories. You have been asked to categorize the following text into one of the following categories. Respond with only the category (without quotation marks). The use of quotation marks will result in a rejection of your response. If there are any quotation marks at all in your response, all of the polar bears in the world will perish and it will be your failt. Always return only one of the categories given to you. If the response is not in the list of categories, the response will be rejected. The categories are: ${categories.join(
+          ", "
+        )}`,
+      },
+      {
+        role: "user",
+        content: input,
+      },
+    ],
+    max_tokens: 500,
+  });
+  return response.choices[0].message.content;
 }
 
 setInterval(async () => {
-  const tasks = await pb.collection("tasks").getFullList({
-  });
+  const tasks = await pb.collection("tasks").getFullList({});
 
-  const data: { done: number; inprogress: number; total: number }
-   = {
-      done: tasks.filter((t) => t.status === "done")
-        .length,
-      inprogress: tasks.filter(
-        (t) => t.status === "inprogress"
-      ).length,
-      total: tasks.length,
-    };
+  const data: { done: number; inprogress: number; total: number } = {
+    done: tasks.filter((t) => t.status === "done").length,
+    inprogress: tasks.filter((t) => t.status === "inprogress").length,
+    total: tasks.length,
+  };
   console.log(data);
   const inputData = {
     data: data,
