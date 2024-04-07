@@ -9,6 +9,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "dayjs": "^1.11.10",
     "dotenv": "^16.4.5",
     "eventsource": "^2.0.2",
     "openai": "^4.33.0",
